@@ -1,0 +1,11 @@
+
+{"friendlyVersion": "0.1",
+ "versionDefName": "RES_FOR_TEXTWATCH24",
+ "media": [
+	   {
+	    "type":"font",
+	    "defName":"FONT_MONACO_10",
+	    "file":"fonts/monaco_10.ttf"
+	   }
+	  ]
+}

@@ -1,4 +1,4 @@
-pebbleTextWatch24
+Text Watch 24h With Date
 =================
 
 Pebble text watch in 24 hour time.

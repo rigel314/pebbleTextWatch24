@@ -86,7 +86,7 @@ void animationStopped(struct Animation *animation, bool finished, void *context)
 	TextLayer* tl = (TextLayer*)context;
 	property_animation_init_layer_frame(&paReturn[paIndex], &tl->layer, &GRect(144, tl->layer.frame.origin.y, 144, 49), &GRect(0, tl->layer.frame.origin.y, 144, 49));
 
-	animation_set_duration(&paReturn[paIndex].animation, paIndex * 100 + 500);
+	animation_set_duration(&paReturn[paIndex].animation, paIndex * 200 + 1000);
 	animation_set_curve(&paReturn[paIndex].animation, AnimationCurveEaseOut);
 	animation_schedule(&paReturn[paIndex].animation);
 
@@ -110,7 +110,7 @@ void move(TextLayer* tl)
 	if(paIndex == -1)
 		return;
 
-	int duration = (first) ? 50 : paIndex * 100 + 500;
+	int duration = (first) ? 50 : paIndex * 200 + 1000;
 
 	static AnimationHandlers aniHandlers = {
 		.stopped = &animationStopped

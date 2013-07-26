@@ -61,9 +61,7 @@ PropertyAnimation paLeave[12];
 PropertyAnimation paReturn[12];
 
 bool first;
-
-// int err;
-// char msg[15];
+int numAnimations;
 
 int getFirstPaIndex(PropertyAnimation pa[], int len)
 {
@@ -79,6 +77,8 @@ int getFirstPaIndex(PropertyAnimation pa[], int len)
 
 void animationStopped(struct Animation *animation, bool finished, void *context)
 {
+	numAnimations--;
+
 	int paIndex = getFirstPaIndex(paReturn, 5);
 	if(paIndex == -1)
 		return;
@@ -104,13 +104,13 @@ void animationStopped(struct Animation *animation, bool finished, void *context)
 
 void move(TextLayer* tl)
 {
-	// err++;
-	// snprintf(msg, 15, "%d", err);
+	numAnimations++;
+
 	int paIndex = getFirstPaIndex(paLeave, 5);
 	if(paIndex == -1)
 		return;
 
-	int duration = (first) ? paIndex * 100 + 500 : 50;
+	int duration = (first) ? 50 : paIndex * 100 + 500;
 
 	static AnimationHandlers aniHandlers = {
 		.stopped = &animationStopped
@@ -147,7 +147,14 @@ void handle_minute_tick(AppContextRef ctx, PebbleTickEvent* t)
 
 	snprintf(newDateStr, 24, "%s, %s %d", days[time.tm_wday], months[time.tm_mon], time.tm_mday);
 
-	if (!getFirstPaIndex(paReturn, 5))
+	/**
+	*	tick_handler gets called automatically at the next second after switching to a watchface.
+	*	I call tick_handler in my init_handler to start updating immediatly.  This causes tick_handler
+	*	to get called again.  Which, in turn, causes these animations to go haywire.  All
+	*	animations shouldn't take longer than a minute, so if the numAnimations isn't 0, a minute
+	*	passed too quickly.
+	*/
+	if (numAnimations == 0)
 	{
 		if (strcmp(newHour10Str, hour10Str))
 			move(&tl_Hour10);
@@ -162,14 +169,7 @@ void handle_minute_tick(AppContextRef ctx, PebbleTickEvent* t)
 	}
 
 	if(first)
-	{
 		first = false;
-		// strcpy(hour10Str, newHour10Str);
-		// strcpy(hour1Str, newHour1Str);
-		// strcpy(min10Str, newMin10Str);
-		// strcpy(min1Str, newMin1Str);
-		// strcpy(dateStr, newDateStr);
-	}
 }
 
 void handle_init(AppContextRef ctx)
@@ -232,7 +232,7 @@ void handle_init(AppContextRef ctx)
 
 	// text_layer_set_text(&tl_Hour10, msg);
 
-	// handle_minute_tick(ctx, NULL);
+	handle_minute_tick(ctx, NULL);
 }
 
 void pbl_main(void *params)

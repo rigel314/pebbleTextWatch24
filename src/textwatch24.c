@@ -44,14 +44,14 @@ char* days[] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday"
 char* months[] = {"January", "Feburary", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
 
 // Holds the current values for the time and date
-char dateStr[24];
+char dateStr[25];
 char hour10Str[7];
 char hour1Str[8];
 char min10Str[8];
 char min1Str[6];
 
 // Holds the new values for the time and date
-char newDateStr[24];
+char newDateStr[25];
 char newHour10Str[7];
 char newHour1Str[8];
 char newMin10Str[8];
@@ -145,7 +145,7 @@ void handle_minute_tick(AppContextRef ctx, PebbleTickEvent* t)
 	min = (time.tm_min<20) ? strsMin1[time.tm_min] : counting[time.tm_min%10];
 	snprintf(newMin1Str, 6, "%s", min);
 
-	snprintf(newDateStr, 24, "%s, %s %d", days[time.tm_wday], months[time.tm_mon], time.tm_mday);
+	snprintf(newDateStr, 25, " %s, %s %d", days[time.tm_wday], months[time.tm_mon], time.tm_mday);
 
 	/**
 	*	tick_handler gets called automatically at the next second after switching to a watchface.

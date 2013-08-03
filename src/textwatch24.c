@@ -5,6 +5,8 @@
 #define DATE 1
 #define OH 0
 
+#define DATE_LEADING_SPACE 2 // I know, 'two pixels', right?  Well, it was bothering me!
+
 #define MY_UUID { 0x4D, 0x54, 0xE0, 0x37, 0x35, 0x17, 0x49, 0xE2, 0xA3, 0x1A, 0xB9, 0xC7, 0x69, 0xED, 0x41, 0x76 }
 PBL_APP_INFO(MY_UUID,
 						 "Cody Watch", "Computing Eureka",
@@ -91,7 +93,13 @@ void animationStopped(struct Animation *animation, bool finished, void *context)
 		return;
 
 	TextLayer* tl = (TextLayer*)context;
-	property_animation_init_layer_frame(&paReturn[paIndex], &tl->layer, &GRect(144, tl->layer.frame.origin.y, 144, 49), &GRect(0, tl->layer.frame.origin.y, 144, 49));
+	GRect dest;
+
+	if(tl == &tl_Date)
+		dest = GRect(DATE_LEADING_SPACE, tl->layer.frame.origin.y, 144, 49);
+	else
+		dest = GRect(0, tl->layer.frame.origin.y, 144, 49);
+	property_animation_init_layer_frame(&paReturn[paIndex], &tl->layer, &GRect(144, tl->layer.frame.origin.y, 144, 49), &dest);
 
 	animation_set_duration(&paReturn[paIndex].animation, paIndex * 200 + 1000);
 	animation_set_curve(&paReturn[paIndex].animation, AnimationCurveEaseOut);
@@ -153,7 +161,7 @@ void handle_minute_tick(AppContextRef ctx, PebbleTickEvent* t)
 	snprintf(newMin1Str, 6, "%s", min);
 
 	#if (DATE)
-		snprintf(newDateStr, 25, " %s, %s %d", days[time.tm_wday], months[time.tm_mon], time.tm_mday);
+		snprintf(newDateStr, 25, "%s, %s %d", days[time.tm_wday], months[time.tm_mon], time.tm_mday);
 	#endif
 
 	/**
@@ -194,7 +202,7 @@ void handle_init(AppContextRef ctx)
 	window_stack_push(&window, true);
 
 	#if (DATE)
-		text_layer_init(&tl_Date, GRect(0,156,144,12));
+		text_layer_init(&tl_Date, GRect(DATE_LEADING_SPACE,156,144,49));
 		// text_layer_set_text(&tl_Date, "Wednesday September 10");
 		text_layer_set_font(&tl_Date, fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_MONACO_10)));
 		tl_Date.text_color = GColorWhite;

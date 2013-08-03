@@ -2,6 +2,8 @@
 #include "pebble_app.h"
 #include "pebble_fonts.h"
 
+#define DATE 0
+#define OH 1
 
 #define MY_UUID { 0x4D, 0x54, 0xE0, 0x37, 0x35, 0x17, 0x49, 0xE2, 0xA3, 0x1A, 0xB9, 0xC7, 0x69, 0xED, 0x41, 0x76 }
 PBL_APP_INFO(MY_UUID,
@@ -22,7 +24,12 @@ TextLayer tl_Date;
 char zero[]=" ", one[]="one", two[]="two", three[]="three", four[]="four", five[]="five", six[]="six", seven[]="seven", eight[]="eight", nine[]="nine";
 char ten[]="ten", eleven[]="eleven", twelve[]="twelve", thirteen[]="thirt", fourteen[]="four", fifteen[]="fifteen", sixteen[]="six", seventeen[]="seven", eighteen[]="eight", nineteen[]="nine";
 char teen[]="teen";
-char zerozero[]="o'clock", zerolead[]="o'";
+char zerozero[]="o'clock";
+#if (OH == 0)
+	char zerolead[]="o'";
+#elif (OH == 1)
+	char zerolead[]="oh";
+#endif
 char twenty[]="twenty", thirty[]="thirty", fourty[]="forty", fifty[]="fifty";
 
 // 0-9 as an array
@@ -39,7 +46,7 @@ char* strsHour1[] = {zerolead, one, two, three, four, five, six, seven, eight, n
 char* strsMin10[] = {zerozero, zerolead, zerolead, zerolead, zerolead, zerolead, zerolead, zerolead, zerolead, zerolead, ten, eleven, twelve, thirteen, fourteen, fifteen, sixteen, seventeen, eighteen, nineteen};
 char* strsMin1[] = {zero, one, two, three, four, five, six, seven, eight, nine, zero, zero, zero, teen, teen, zero, teen, teen, teen, teen};
 
-// Days and months as a lookup table
+// Days and months as lookup tables
 char* days[] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
 char* months[] = {"January", "Feburary", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
 
@@ -145,7 +152,9 @@ void handle_minute_tick(AppContextRef ctx, PebbleTickEvent* t)
 	min = (time.tm_min<20) ? strsMin1[time.tm_min] : counting[time.tm_min%10];
 	snprintf(newMin1Str, 6, "%s", min);
 
-	snprintf(newDateStr, 25, " %s, %s %d", days[time.tm_wday], months[time.tm_mon], time.tm_mday);
+	#if (DATE)
+		snprintf(newDateStr, 25, " %s, %s %d", days[time.tm_wday], months[time.tm_mon], time.tm_mday);
+	#endif
 
 	/**
 	*	tick_handler gets called automatically at the next second after switching to a watchface.
@@ -175,6 +184,7 @@ void handle_minute_tick(AppContextRef ctx, PebbleTickEvent* t)
 void handle_init(AppContextRef ctx)
 {
 	first = true;
+	int dO = 6; // date Offset: number of pixels to offset everything if there is no date.
 	// err = 0;
 
 	resource_init_current_app(&RES_FOR_TEXTWATCH24);
@@ -183,35 +193,38 @@ void handle_init(AppContextRef ctx)
 	window_set_background_color(&window, GColorBlack);
 	window_stack_push(&window, true);
 
-	text_layer_init(&tl_Date, GRect(0,156,144,12));
-	// text_layer_set_text(&tl_Date, "Wednesday September 10");
-	text_layer_set_font(&tl_Date, fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_MONACO_10)));
-	tl_Date.text_color = GColorWhite;
-	tl_Date.background_color = GColorBlack;
-	layer_add_child(&window.layer, &tl_Date.layer);
+	#if (DATE)
+		text_layer_init(&tl_Date, GRect(0,156,144,12));
+		// text_layer_set_text(&tl_Date, "Wednesday September 10");
+		text_layer_set_font(&tl_Date, fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_MONACO_10)));
+		tl_Date.text_color = GColorWhite;
+		tl_Date.background_color = GColorBlack;
+		layer_add_child(&window.layer, &tl_Date.layer);
+		dO = 0;
+	#endif
 
-	text_layer_init(&tl_Min1, GRect(0,107,144,49));
+	text_layer_init(&tl_Min1, GRect(0,107+dO,144,49));
 	// text_layer_set_text(&tl_Min1, "fifteen");
 	text_layer_set_font(&tl_Min1, fonts_get_system_font(FONT_KEY_BITHAM_42_LIGHT));
 	tl_Min1.text_color = GColorWhite;
 	tl_Min1.background_color = GColorBlack;
 	layer_add_child(&window.layer, &tl_Min1.layer);
 
-	text_layer_init(&tl_Min10, GRect(0,68,144,49));
+	text_layer_init(&tl_Min10, GRect(0,68+dO,144,49));
 	// text_layer_set_text(&tl_Min10, "thirteen");
 	text_layer_set_font(&tl_Min10, fonts_get_system_font(FONT_KEY_BITHAM_42_LIGHT));
 	tl_Min10.text_color = GColorWhite;
 	tl_Min10.background_color = GColorBlack;
 	layer_add_child(&window.layer, &tl_Min10.layer);
 
-	text_layer_init(&tl_Hour1, GRect(0,29,144,49));
+	text_layer_init(&tl_Hour1, GRect(0,29+dO,144,49));
 	// text_layer_set_text(&tl_Hour1, "teen");
 	text_layer_set_font(&tl_Hour1, fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD));
 	tl_Hour1.text_color = GColorWhite;
 	tl_Hour1.background_color = GColorBlack;
 	layer_add_child(&window.layer, &tl_Hour1.layer);
 
-	text_layer_init(&tl_Hour10, GRect(0,-10,144,49));
+	text_layer_init(&tl_Hour10, GRect(0,-10+dO,144,49));
 	// text_layer_set_text(&tl_Hour10, "thirt");
 	text_layer_set_font(&tl_Hour10, fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD));
 	tl_Hour10.text_color = GColorWhite;

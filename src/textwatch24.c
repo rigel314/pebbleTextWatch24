@@ -1,26 +1,24 @@
-#include "pebble_os.h"
-#include "pebble_app.h"
-#include "pebble_fonts.h"
+#include "pebble.h"
 
 #define DATE 1
 #define OH 0
 
 #define DATE_LEADING_SPACE 2 // I know, 'two pixels', right?  Well, it was bothering me!
 
-#define MY_UUID { 0x4D, 0x54, 0xE0, 0x37, 0x35, 0x17, 0x49, 0xE2, 0xA3, 0x1A, 0xB9, 0xC7, 0x69, 0xED, 0x41, 0x76 }
-PBL_APP_INFO(MY_UUID,
-						 "Cody Watch", "Computing Eureka",
-						 1, 0, /* App version */
-						 DEFAULT_MENU_ICON,
-						 APP_INFO_WATCH_FACE);
+// For keeping track of stuff and making sure to free alloc'ed memory
+struct aniInfo
+{
+	TextLayer* tl;
+	PropertyAnimation* pa;
+};
 
-// Structs
-Window window;
-TextLayer tl_Hour10;
-TextLayer tl_Hour1;
-TextLayer tl_Min10;
-TextLayer tl_Min1;
-TextLayer tl_Date;
+// UI elements
+Window* window;
+TextLayer* tl_Hour10;
+TextLayer* tl_Hour1;
+TextLayer* tl_Min10;
+TextLayer* tl_Min1;
+TextLayer* tl_Date;
 
 // Strings
 char zero[]=" ", one[]="one", two[]="two", three[]="three", four[]="four", five[]="five", six[]="six", seven[]="seven", eight[]="eight", nine[]="nine";
@@ -66,22 +64,27 @@ char newHour1Str[8];
 char newMin10Str[8];
 char newMin1Str[6];
 
-PropertyAnimation paLeave[12];
-PropertyAnimation paReturn[12];
+PropertyAnimation* paLeave[12];
+PropertyAnimation* paReturn[12];
 
 bool first;
 int numAnimations;
 
-int getFirstPaIndex(PropertyAnimation pa[], int len)
+int getFirstPaIndex(PropertyAnimation* pa[], int len)
 {
 	int i;
 
-	for (i = 0; i < len && animation_is_scheduled(&pa[i].animation); i++);
+	for (i = 0; i < len && animation_is_scheduled(&pa[i]->animation); i++);
 	
 	if (i==len)
 		return -1;
 
 	return i;
+}
+
+void freeReturnAnimations(struct Animation *animation, bool finished, void *context)
+{
+	property_animation_destroy((PropertyAnimation*)context);
 }
 
 void animationStopped(struct Animation *animation, bool finished, void *context)
@@ -92,29 +95,40 @@ void animationStopped(struct Animation *animation, bool finished, void *context)
 	if(paIndex == -1)
 		return;
 
-	TextLayer* tl = (TextLayer*)context;
-	GRect dest;
+	static AnimationHandlers aniHandlers = {
+		.stopped = &freeReturnAnimations
+	};
 
-	if(tl == &tl_Date)
-		dest = GRect(DATE_LEADING_SPACE, tl->layer.frame.origin.y, 144, 49);
+	TextLayer* tl = ((struct aniInfo*)context)->tl;
+	GRect dest, src;
+
+	if(tl == tl_Date)
+		dest = GRect(DATE_LEADING_SPACE, layer_get_frame(text_layer_get_layer(tl)).origin.y, 144, 49);
 	else
-		dest = GRect(0, tl->layer.frame.origin.y, 144, 49);
-	property_animation_init_layer_frame(&paReturn[paIndex], &tl->layer, &GRect(144, tl->layer.frame.origin.y, 144, 49), &dest);
+		dest = GRect(0, layer_get_frame(text_layer_get_layer(tl)).origin.y, 144, 49);
 
-	animation_set_duration(&paReturn[paIndex].animation, paIndex * 200 + 1000);
-	animation_set_curve(&paReturn[paIndex].animation, AnimationCurveEaseOut);
-	animation_schedule(&paReturn[paIndex].animation);
+	src = GRect(144, layer_get_frame(text_layer_get_layer(tl)).origin.y, 144, 49);
+	paReturn[paIndex] = property_animation_create_layer_frame(text_layer_get_layer(tl), &src, &dest);
+	// return;
 
-	if(tl == &tl_Hour10)
+	animation_set_duration(&paReturn[paIndex]->animation, paIndex * 200 + 1000);
+	animation_set_curve(&paReturn[paIndex]->animation, AnimationCurveEaseOut);
+	animation_set_handlers(&paReturn[paIndex]->animation, aniHandlers, paReturn[paIndex]);
+	animation_schedule(&paReturn[paIndex]->animation);
+
+	if(tl == tl_Hour10)
 		strcpy(hour10Str, newHour10Str);
-	if(tl == &tl_Hour1)
+	if(tl == tl_Hour1)
 		strcpy(hour1Str, newHour1Str);
-	if(tl == &tl_Min10)
+	if(tl == tl_Min10)
 		strcpy(min10Str, newMin10Str);
-	if(tl == &tl_Min1)
+	if(tl == tl_Min1)
 		strcpy(min1Str, newMin1Str);
-	if(tl == &tl_Date)
+	if(tl == tl_Date)
 		strcpy(dateStr, newDateStr);
+
+	property_animation_destroy(((struct aniInfo*)context)->pa);
+	free(context);
 }
 
 void move(TextLayer* tl)
@@ -125,43 +139,42 @@ void move(TextLayer* tl)
 	if(paIndex == -1)
 		return;
 
+	struct aniInfo* ai = malloc(sizeof(struct aniInfo));
+
 	int duration = (first) ? 50 : paIndex * 200 + 1000;
 
 	static AnimationHandlers aniHandlers = {
 		.stopped = &animationStopped
 	};
 
-	property_animation_init_layer_frame(&paLeave[paIndex], &tl->layer, NULL, &GRect(-144, tl->layer.frame.origin.y, 144, 49));
+	paLeave[paIndex] = property_animation_create_layer_frame(text_layer_get_layer(tl), NULL, &GRect(-144, layer_get_frame(text_layer_get_layer(tl)).origin.y, 144, 49));
 
-	animation_set_delay(&paLeave[paIndex].animation, paIndex * 50);
-	animation_set_duration(&paLeave[paIndex].animation, duration);
-	animation_set_curve(&paLeave[paIndex].animation, AnimationCurveEaseIn);
-	animation_set_handlers(&paLeave[paIndex].animation, aniHandlers, tl);
-	animation_schedule(&paLeave[paIndex].animation);
+	ai->tl = tl;
+	ai->pa = paLeave[paIndex];
+
+	animation_set_delay(&paLeave[paIndex]->animation, paIndex * 50);
+	animation_set_duration(&paLeave[paIndex]->animation, duration);
+	animation_set_curve(&paLeave[paIndex]->animation, AnimationCurveEaseIn);
+	animation_set_handlers(&paLeave[paIndex]->animation, aniHandlers, ai);
+	animation_schedule(&paLeave[paIndex]->animation);
 }
 
-void handle_minute_tick(AppContextRef ctx, PebbleTickEvent* t)
+void handle_minute_tick(struct tm *now, TimeUnits units_changed)
 {
-	(void) ctx;
-	(void) t;
-
 	char* min;
 
-	PblTm time;
-	get_time(&time);
+	snprintf(newHour10Str, 7, "%s", strsHour10[now->tm_hour]);
 
-	snprintf(newHour10Str, 7, "%s", strsHour10[time.tm_hour]);
+	snprintf(newHour1Str, 8, "%s", strsHour1[now->tm_hour]);
 
-	snprintf(newHour1Str, 8, "%s", strsHour1[time.tm_hour]);
-
-	min = (time.tm_min<20) ? strsMin10[time.tm_min] : strsMin10s[time.tm_min/10 - 2];
+	min = (now->tm_min<20) ? strsMin10[now->tm_min] : strsMin10s[now->tm_min/10 - 2];
 	snprintf(newMin10Str, 8, "%s", min);
 
-	min = (time.tm_min<20) ? strsMin1[time.tm_min] : counting[time.tm_min%10];
+	min = (now->tm_min<20) ? strsMin1[now->tm_min] : counting[now->tm_min%10];
 	snprintf(newMin1Str, 6, "%s", min);
 
 	#if (DATE)
-		snprintf(newDateStr, 25, "%s, %s %d", days[time.tm_wday], months[time.tm_mon], time.tm_mday);
+		snprintf(newDateStr, 25, "%s, %s %d", days[now->tm_wday], months[now->tm_mon], (int) now->tm_mday);
 	#endif
 
 	/**
@@ -174,70 +187,70 @@ void handle_minute_tick(AppContextRef ctx, PebbleTickEvent* t)
 	if (numAnimations == 0)
 	{
 		if (strcmp(newHour10Str, hour10Str))
-			move(&tl_Hour10);
+			move(tl_Hour10);
 		if (strcmp(newHour1Str, hour1Str))
-			move(&tl_Hour1);
+			move(tl_Hour1);
 		if (strcmp(newMin10Str, min10Str))
-			move(&tl_Min10);
+			move(tl_Min10);
 		if (strcmp(newMin1Str, min1Str))
-			move(&tl_Min1);
+			move(tl_Min1);
 		if (strcmp(newDateStr, dateStr))
-			move(&tl_Date);
+			move(tl_Date);
 	}
 
 	if(first)
 		first = false;
 }
 
-void handle_init(AppContextRef ctx)
+void init(void)
 {
 	first = true;
 	int dO = 6; // date Offset: number of pixels to offset everything if there is no date.
 	// err = 0;
+	static struct tm* now;
+	time_t unix_now;
 
-	resource_init_current_app(&RES_FOR_TEXTWATCH24);
-
-	window_init(&window, "Cody Watch");
-	window_set_background_color(&window, GColorBlack);
-	window_stack_push(&window, true);
+	window = window_create();
+	window_set_background_color(window, GColorBlack);
+	window_stack_push(window, true);
 
 	#if (DATE)
-		text_layer_init(&tl_Date, GRect(DATE_LEADING_SPACE,156,144,49));
-		// text_layer_set_text(&tl_Date, "Wednesday September 10");
-		text_layer_set_font(&tl_Date, fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_MONACO_10)));
-		tl_Date.text_color = GColorWhite;
-		tl_Date.background_color = GColorBlack;
-		layer_add_child(&window.layer, &tl_Date.layer);
+		tl_Date = text_layer_create(GRect(DATE_LEADING_SPACE,156,144,49));
+		// text_layer_set_text(tl_Date, "Wednesday September 10");
+		text_layer_set_font(tl_Date, fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_MONACO_10)));
+		text_layer_set_text_color(tl_Date, GColorWhite);
+		text_layer_set_background_color(tl_Date, GColorBlack);
+		layer_add_child(window_get_root_layer(window), text_layer_get_layer(tl_Date));
 		dO = 0;
 	#endif
 
-	text_layer_init(&tl_Min1, GRect(0,107+dO,144,49));
-	// text_layer_set_text(&tl_Min1, "fifteen");
-	text_layer_set_font(&tl_Min1, fonts_get_system_font(FONT_KEY_BITHAM_42_LIGHT));
-	tl_Min1.text_color = GColorWhite;
-	tl_Min1.background_color = GColorBlack;
-	layer_add_child(&window.layer, &tl_Min1.layer);
+	tl_Min1 = text_layer_create(GRect(0,107+dO,144,49));
+	// text_layer_set_text(tl_Min1, "fifteen");
+	text_layer_set_font(tl_Min1, fonts_get_system_font(FONT_KEY_BITHAM_42_LIGHT));
+	text_layer_set_text_color(tl_Min1, GColorWhite);
+	text_layer_set_background_color(tl_Min1, GColorBlack);
+	layer_add_child(window_get_root_layer(window), text_layer_get_layer(tl_Min1));
 
-	text_layer_init(&tl_Min10, GRect(0,68+dO,144,49));
-	// text_layer_set_text(&tl_Min10, "thirteen");
-	text_layer_set_font(&tl_Min10, fonts_get_system_font(FONT_KEY_BITHAM_42_LIGHT));
-	tl_Min10.text_color = GColorWhite;
-	tl_Min10.background_color = GColorBlack;
-	layer_add_child(&window.layer, &tl_Min10.layer);
+	tl_Min10 = text_layer_create(GRect(0,68+dO,144,49));
+	// text_layer_set_text(tl_Min10, "thirteen");
+	text_layer_set_font(tl_Min10, fonts_get_system_font(FONT_KEY_BITHAM_42_LIGHT));
+	text_layer_set_text_color(tl_Min10, GColorWhite);
+	text_layer_set_background_color(tl_Min10, GColorBlack);
+	layer_add_child(window_get_root_layer(window), text_layer_get_layer(tl_Min10));
 
-	text_layer_init(&tl_Hour1, GRect(0,29+dO,144,49));
-	// text_layer_set_text(&tl_Hour1, "teen");
-	text_layer_set_font(&tl_Hour1, fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD));
-	tl_Hour1.text_color = GColorWhite;
-	tl_Hour1.background_color = GColorBlack;
-	layer_add_child(&window.layer, &tl_Hour1.layer);
+	tl_Hour1 = text_layer_create(GRect(0,29+dO,144,49));
+	// text_layer_set_text(tl_Hour1, "teen");
+	text_layer_set_font(tl_Hour1, fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD));
+	text_layer_set_text_color(tl_Hour1, GColorWhite);
+	text_layer_set_background_color(tl_Hour1, GColorBlack);
+	layer_add_child(window_get_root_layer(window), text_layer_get_layer(tl_Hour1));
 
-	text_layer_init(&tl_Hour10, GRect(0,-10+dO,144,49));
-	// text_layer_set_text(&tl_Hour10, "thirt");
-	text_layer_set_font(&tl_Hour10, fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD));
-	tl_Hour10.text_color = GColorWhite;
-	tl_Hour10.background_color = GColorBlack;
-	layer_add_child(&window.layer, &tl_Hour10.layer);
+	tl_Hour10 = text_layer_create(GRect(0,-10+dO,144,49));
+	// text_layer_set_text(tl_Hour10, "thirt");
+	text_layer_set_font(tl_Hour10, fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD));
+	text_layer_set_text_color(tl_Hour10, GColorWhite);
+	text_layer_set_background_color(tl_Hour10, GColorBlack);
+	layer_add_child(window_get_root_layer(window), text_layer_get_layer(tl_Hour10));
 
 	strcpy(hour10Str, " ");
 	strcpy(hour1Str, " ");
@@ -245,25 +258,37 @@ void handle_init(AppContextRef ctx)
 	strcpy(min1Str, " ");
 	strcpy(dateStr, " ");
 
-	text_layer_set_text(&tl_Hour10, hour10Str);
-	text_layer_set_text(&tl_Hour1, hour1Str);
-	text_layer_set_text(&tl_Min10, min10Str);
-	text_layer_set_text(&tl_Min1, min1Str);
-	text_layer_set_text(&tl_Date, dateStr);
+	text_layer_set_text(tl_Hour10, hour10Str);
+	text_layer_set_text(tl_Hour1, hour1Str);
+	text_layer_set_text(tl_Min10, min10Str);
+	text_layer_set_text(tl_Min1, min1Str);
+	text_layer_set_text(tl_Date, dateStr);
 
-	// text_layer_set_text(&tl_Hour10, msg);
+	// text_layer_set_text(tl_Hour10, msg);
 
-	handle_minute_tick(ctx, NULL);
+	tick_timer_service_subscribe(MINUTE_UNIT, &handle_minute_tick);
+
+	unix_now = time(NULL);
+	now = localtime(&unix_now);
+	handle_minute_tick(now, MINUTE_UNIT);
 }
 
-void pbl_main(void *params)
+void deinit(void)
 {
-	PebbleAppHandlers handlers = {
-		.init_handler = &handle_init,
-		.tick_info = {
-			.tick_handler = &handle_minute_tick,
-			.tick_units = MINUTE_UNIT
-			}
-	};
-	app_event_loop(params, &handlers);
+	text_layer_destroy(tl_Hour10);
+	text_layer_destroy(tl_Hour1);
+	text_layer_destroy(tl_Min10);
+	text_layer_destroy(tl_Min1);
+	text_layer_destroy(tl_Date);
+
+	window_destroy(window);
+}
+
+int main(void)
+{
+	init();
+
+	app_event_loop();
+
+	deinit();
 }

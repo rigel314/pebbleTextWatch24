@@ -1,0 +1,21 @@
+{
+	"uuid": "4D54E037-3517-49E2-A31A-B9C769ED4176",
+	"shortName": "textWatch24",
+	"longName": "24 Hour Text Watch",
+	"companyName": "Computing Eureka",
+	"versionCode": 2,
+	"versionLabel": "2.0.0",
+	"watchapp": {
+		"watchface": true
+	},
+	"appKeys": {},
+	"resources": {
+		"media": [
+			{
+				"type": "font",
+				"name": "FONT_MONACO_10",
+				"file": "fonts/monaco_10.ttf"
+			}
+		]
+	}
+}

@@ -19,6 +19,7 @@ TextLayer* tl_Hour1;
 TextLayer* tl_Min10;
 TextLayer* tl_Min1;
 TextLayer* tl_Date;
+GFont monaco10;
 
 // Strings
 char zero[]=" ", one[]="one", two[]="two", three[]="three", four[]="four", five[]="five", six[]="six", seven[]="seven", eight[]="eight", nine[]="nine";
@@ -93,7 +94,7 @@ void animationStopped(struct Animation *animation, bool finished, void *context)
 
 	int paIndex = getFirstPaIndex(paReturn, 5);
 	if(paIndex == -1)
-		return;
+		goto dieFail;
 
 	static AnimationHandlers aniHandlers = {
 		.stopped = &freeReturnAnimations
@@ -102,9 +103,11 @@ void animationStopped(struct Animation *animation, bool finished, void *context)
 	TextLayer* tl = ((struct aniInfo*)context)->tl;
 	GRect dest, src;
 
+	#if (DATE)
 	if(tl == tl_Date)
 		dest = GRect(DATE_LEADING_SPACE, layer_get_frame(text_layer_get_layer(tl)).origin.y, 144, 49);
 	else
+	#endif
 		dest = GRect(0, layer_get_frame(text_layer_get_layer(tl)).origin.y, 144, 49);
 
 	src = GRect(144, layer_get_frame(text_layer_get_layer(tl)).origin.y, 144, 49);
@@ -124,9 +127,12 @@ void animationStopped(struct Animation *animation, bool finished, void *context)
 		strcpy(min10Str, newMin10Str);
 	if(tl == tl_Min1)
 		strcpy(min1Str, newMin1Str);
-	if(tl == tl_Date)
-		strcpy(dateStr, newDateStr);
+	#if (DATE)
+		if(tl == tl_Date)
+			strcpy(dateStr, newDateStr);
+	#endif
 
+dieFail:
 	property_animation_destroy(((struct aniInfo*)context)->pa);
 	free(context);
 }
@@ -194,8 +200,10 @@ void handle_minute_tick(struct tm *now, TimeUnits units_changed)
 			move(tl_Min10);
 		if (strcmp(newMin1Str, min1Str))
 			move(tl_Min1);
-		if (strcmp(newDateStr, dateStr))
-			move(tl_Date);
+		#if (DATE)
+			if (strcmp(newDateStr, dateStr))
+				move(tl_Date);
+		#endif
 	}
 
 	if(first)
@@ -215,9 +223,10 @@ void init(void)
 	window_stack_push(window, true);
 
 	#if (DATE)
+		monaco10 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_MONACO_10));
 		tl_Date = text_layer_create(GRect(DATE_LEADING_SPACE,156,144,49));
 		// text_layer_set_text(tl_Date, "Wednesday September 10");
-		text_layer_set_font(tl_Date, fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_MONACO_10)));
+		text_layer_set_font(tl_Date, monaco10);
 		text_layer_set_text_color(tl_Date, GColorWhite);
 		text_layer_set_background_color(tl_Date, GColorBlack);
 		layer_add_child(window_get_root_layer(window), text_layer_get_layer(tl_Date));
@@ -262,8 +271,9 @@ void init(void)
 	text_layer_set_text(tl_Hour1, hour1Str);
 	text_layer_set_text(tl_Min10, min10Str);
 	text_layer_set_text(tl_Min1, min1Str);
-	text_layer_set_text(tl_Date, dateStr);
-
+	#if (DATE)
+		text_layer_set_text(tl_Date, dateStr);
+	#endif
 	// text_layer_set_text(tl_Hour10, msg);
 
 	tick_timer_service_subscribe(MINUTE_UNIT, &handle_minute_tick);
@@ -279,7 +289,10 @@ void deinit(void)
 	text_layer_destroy(tl_Hour1);
 	text_layer_destroy(tl_Min10);
 	text_layer_destroy(tl_Min1);
-	text_layer_destroy(tl_Date);
+	#if (DATE)
+		text_layer_destroy(tl_Date);
+		fonts_unload_custom_font(monaco10);
+	#endif
 
 	window_destroy(window);
 }

@@ -8,7 +8,13 @@
 	"watchapp": {
 		"watchface": true
 	},
-	"appKeys": {},
+	"capabilities": [ "configurable" ],
+	"appKeys": {
+		"date": 0,
+		"oh": 1,
+		"req": 2,
+		"err": 3
+		},
 	"resources": {
 		"media": [
 			{

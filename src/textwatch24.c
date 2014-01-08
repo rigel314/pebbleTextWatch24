@@ -1,9 +1,22 @@
-#include "pebble.h"
-
-#define DATE 1
-#define OH 0
+#include <pebble.h>
 
 #define DATE_LEADING_SPACE 2 // I know, 'two pixels', right?  Well, it was bothering me!
+
+// Persistant storage keys and AppMessage keys.
+enum keys
+{
+	KEY_DATE,
+	KEY_OH,
+	KEY_REQ,
+	KEY_ERR
+};
+
+// AppMessage Values
+enum vals
+{
+	REQ_VAL_ASK = 1,
+	REQ_VAL_SET = 2,
+};
 
 // For keeping track of stuff and making sure to free alloc'ed memory
 struct aniInfo
@@ -26,11 +39,7 @@ char zero[]=" ", one[]="one", two[]="two", three[]="three", four[]="four", five[
 char ten[]="ten", eleven[]="eleven", twelve[]="twelve", thirteen[]="thirt", fourteen[]="four", fifteen[]="fifteen", sixteen[]="six", seventeen[]="seven", eighteen[]="eight", nineteen[]="nine";
 char teen[]="teen";
 char zerozero[]="o'clock";
-#if (OH == 0)
-	char zerolead[]="o'";
-#elif (OH == 1)
-	char zerolead[]="oh";
-#endif
+char zerolead[]="o'";
 char twenty[]="twenty", thirty[]="thirty", fourty[]="forty", fifty[]="fifty";
 
 // 0-9 as an array
@@ -65,11 +74,14 @@ char newHour1Str[8];
 char newMin10Str[8];
 char newMin1Str[6];
 
-PropertyAnimation* paLeave[12];
-PropertyAnimation* paReturn[12];
+PropertyAnimation* paLeave[12] = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
+PropertyAnimation* paReturn[12] = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 
 bool first;
 int numAnimations;
+
+bool date;
+bool oh;
 
 int getFirstPaIndex(PropertyAnimation* pa[], int len)
 {
@@ -90,6 +102,11 @@ void freeReturnAnimations(struct Animation *animation, bool finished, void *cont
 
 void animationStopped(struct Animation *animation, bool finished, void *context)
 {
+	if (finished == false)
+	{
+		property_animation_destroy(((struct aniInfo*)context)->pa);
+		return;
+	}
 	numAnimations--;
 
 	int paIndex = getFirstPaIndex(paReturn, 5);
@@ -103,11 +120,9 @@ void animationStopped(struct Animation *animation, bool finished, void *context)
 	TextLayer* tl = ((struct aniInfo*)context)->tl;
 	GRect dest, src;
 
-	#if (DATE)
 	if(tl == tl_Date)
 		dest = GRect(DATE_LEADING_SPACE, layer_get_frame(text_layer_get_layer(tl)).origin.y, 144, 49);
 	else
-	#endif
 		dest = GRect(0, layer_get_frame(text_layer_get_layer(tl)).origin.y, 144, 49);
 
 	src = GRect(144, layer_get_frame(text_layer_get_layer(tl)).origin.y, 144, 49);
@@ -127,10 +142,11 @@ void animationStopped(struct Animation *animation, bool finished, void *context)
 		strcpy(min10Str, newMin10Str);
 	if(tl == tl_Min1)
 		strcpy(min1Str, newMin1Str);
-	#if (DATE)
+	if (date)
+	{
 		if(tl == tl_Date)
 			strcpy(dateStr, newDateStr);
-	#endif
+	}
 
 dieFail:
 	property_animation_destroy(((struct aniInfo*)context)->pa);
@@ -179,9 +195,7 @@ void handle_minute_tick(struct tm *now, TimeUnits units_changed)
 	min = (now->tm_min<20) ? strsMin1[now->tm_min] : counting[now->tm_min%10];
 	snprintf(newMin1Str, 6, "%s", min);
 
-	#if (DATE)
-		snprintf(newDateStr, 25, "%s, %s %d", days[now->tm_wday], months[now->tm_mon], (int) now->tm_mday);
-	#endif
+	snprintf(newDateStr, 25, "%s, %s %d", days[now->tm_wday], months[now->tm_mon], (int) now->tm_mday);
 
 	/**
 	*	tick_handler gets called automatically at the next second after switching to a watchface.
@@ -200,14 +214,106 @@ void handle_minute_tick(struct tm *now, TimeUnits units_changed)
 			move(tl_Min10);
 		if (strcmp(newMin1Str, min1Str))
 			move(tl_Min1);
-		#if (DATE)
-			if (strcmp(newDateStr, dateStr))
-				move(tl_Date);
-		#endif
+		if (strcmp(newDateStr, dateStr))
+			move(tl_Date);
 	}
 
 	if(first)
 		first = false;
+}
+
+// void out_failed_handler(AppMessageResult reason, void* context)
+// {
+// 	;
+// }
+// void out_sent_handler(AppMessageResult reason, void* context)
+// {
+// 	;
+// }
+// void in_dropped_handler(AppMessageResult reason, void* context)
+// {
+// 	;
+// }
+void in_received_handler(DictionaryIterator *iter, void *context)
+{
+	Tuple *tuple = dict_find(iter, KEY_REQ);
+
+	if (tuple && tuple->value->uint32 == REQ_VAL_ASK)
+	{
+		DictionaryIterator *iter;
+		Tuplet dateVal = TupletInteger(KEY_DATE, date);
+		Tuplet ohVal = TupletInteger(KEY_OH, ((oh == 1) ? 2 : 1));
+		
+		app_message_outbox_begin(&iter);
+		dict_write_tuplet(iter, &dateVal);
+		dict_write_tuplet(iter, &ohVal);
+		app_message_outbox_send();
+	}
+	if (tuple && tuple->value->uint32 == REQ_VAL_SET)
+	{
+		Tuple *tuple = dict_find(iter, KEY_DATE);
+		
+		if(getFirstPaIndex(paReturn, 5) || getFirstPaIndex(paLeave, 5))
+		{
+			DictionaryIterator *iter;
+			Tuplet err = TupletInteger(KEY_ERR, 1);
+			
+			app_message_outbox_begin(&iter);
+			dict_write_tuplet(iter, &err);
+			app_message_outbox_send();
+		}
+
+		if (tuple)
+		{
+			int dO;
+			GRect frame;
+
+			date = (tuple->value->uint32 != 0);
+
+			if (date)
+			{
+				dO = 0;
+				layer_set_hidden(text_layer_get_layer(tl_Date), false);
+			}
+			else
+			{
+				dO = 6;
+				layer_set_hidden(text_layer_get_layer(tl_Date), true);
+			}
+
+			frame = layer_get_frame(text_layer_get_layer(tl_Hour10));
+			frame.origin.y = -10+dO;
+			layer_set_frame(text_layer_get_layer(tl_Hour10), frame);
+
+			frame = layer_get_frame(text_layer_get_layer(tl_Hour1));
+			frame.origin.y = 29+dO;
+			layer_set_frame(text_layer_get_layer(tl_Hour1), frame);
+
+			frame = layer_get_frame(text_layer_get_layer(tl_Min10));
+			frame.origin.y = 68+dO;
+			layer_set_frame(text_layer_get_layer(tl_Min10), frame);
+
+			frame = layer_get_frame(text_layer_get_layer(tl_Min1));
+			frame.origin.y = 107+dO;
+			layer_set_frame(text_layer_get_layer(tl_Min1), frame);			
+		}
+
+		tuple = dict_find(iter, KEY_OH);
+		if (tuple)
+		{
+			oh = (tuple->value->uint32 != 0);
+			
+			if (oh)
+				strcpy(zerolead, "oh");
+			else
+				strcpy(zerolead, "o'");
+			
+			if(!strcmp(text_layer_get_text(tl_Min10), "oh") || !strcmp(text_layer_get_text(tl_Min10), "o'"))
+			{
+				text_layer_set_text(tl_Min10, zerolead);
+			}
+		}
+	}
 }
 
 void init(void)
@@ -218,20 +324,40 @@ void init(void)
 	static struct tm* now;
 	time_t unix_now;
 
+	date = 1;
+	oh = 0;
+	numAnimations = 0;
+
+	app_message_open(100, 100);
+	app_message_register_inbox_received(&in_received_handler);
+
+	if (persist_exists(KEY_DATE))
+		date = persist_read_int(KEY_DATE);
+	if (persist_exists(KEY_OH))
+		oh = persist_read_int(KEY_OH);
+
+	if(oh == 1)
+		strcpy(zerolead, "oh");
+
 	window = window_create();
 	window_set_background_color(window, GColorBlack);
 	window_stack_push(window, true);
 
-	#if (DATE)
-		monaco10 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_MONACO_10));
-		tl_Date = text_layer_create(GRect(DATE_LEADING_SPACE,156,144,49));
-		// text_layer_set_text(tl_Date, "Wednesday September 10");
-		text_layer_set_font(tl_Date, monaco10);
-		text_layer_set_text_color(tl_Date, GColorWhite);
-		text_layer_set_background_color(tl_Date, GColorBlack);
-		layer_add_child(window_get_root_layer(window), text_layer_get_layer(tl_Date));
-		dO = 0;
-	#endif
+
+	monaco10 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_MONACO_10));
+	tl_Date = text_layer_create(GRect(DATE_LEADING_SPACE,156,144,49));
+	// text_layer_set_text(tl_Date, "Wednesday September 10");
+	text_layer_set_font(tl_Date, monaco10);
+	text_layer_set_text_color(tl_Date, GColorWhite);
+	text_layer_set_background_color(tl_Date, GColorBlack);
+	layer_add_child(window_get_root_layer(window), text_layer_get_layer(tl_Date));
+	dO = 0;
+	
+	if (!date)
+	{
+		dO = 6;
+		layer_set_hidden(text_layer_get_layer(tl_Date), true);
+	}
 
 	tl_Min1 = text_layer_create(GRect(0,107+dO,144,49));
 	// text_layer_set_text(tl_Min1, "fifteen");
@@ -271,9 +397,7 @@ void init(void)
 	text_layer_set_text(tl_Hour1, hour1Str);
 	text_layer_set_text(tl_Min10, min10Str);
 	text_layer_set_text(tl_Min1, min1Str);
-	#if (DATE)
-		text_layer_set_text(tl_Date, dateStr);
-	#endif
+	text_layer_set_text(tl_Date, dateStr);
 	// text_layer_set_text(tl_Hour10, msg);
 
 	tick_timer_service_subscribe(MINUTE_UNIT, &handle_minute_tick);
@@ -285,14 +409,27 @@ void init(void)
 
 void deinit(void)
 {
+	if (oh == 0)
+		persist_delete(KEY_OH);
+	else
+		persist_write_int(KEY_OH, oh);
+
+	if (date == 1)
+		persist_delete(KEY_DATE);
+	else
+		persist_write_int(KEY_DATE, date);
+
 	text_layer_destroy(tl_Hour10);
 	text_layer_destroy(tl_Hour1);
 	text_layer_destroy(tl_Min10);
 	text_layer_destroy(tl_Min1);
-	#if (DATE)
-		text_layer_destroy(tl_Date);
-		fonts_unload_custom_font(monaco10);
-	#endif
+	text_layer_destroy(tl_Date);
+	fonts_unload_custom_font(monaco10);
+
+	for (int i = 0; i < 5 && animation_is_scheduled(&paLeave[i]->animation); i++)
+		property_animation_destroy(paLeave[i]);
+	for (int i = 0; i < 5 && animation_is_scheduled(&paReturn[i]->animation); i++)
+		property_animation_destroy(paReturn[i]);
 
 	window_destroy(window);
 }

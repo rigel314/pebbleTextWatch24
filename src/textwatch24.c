@@ -321,6 +321,10 @@ void in_received_handler(DictionaryIterator *iter, void *context)
 			{
 				text_layer_set_text(tl_Min10, zerolead);
 			}
+			if(!strcmp(text_layer_get_text(tl_Hour1), "oh") || !strcmp(text_layer_get_text(tl_Hour1), "o'"))
+			{
+				text_layer_set_text(tl_Hour1, zerolead);
+			}
 		}
 	}
 }

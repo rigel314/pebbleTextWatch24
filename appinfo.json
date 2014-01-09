@@ -4,7 +4,7 @@
 	"longName": "24 Hour Text Watch",
 	"companyName": "Computing Eureka",
 	"versionCode": 2,
-	"versionLabel": "2.1.1",
+	"versionLabel": "2.1.2",
 	"watchapp": {
 		"watchface": true
 	},

@@ -17,7 +17,7 @@ def configure(ctx):
 def build(ctx):
     ctx.load('pebble_sdk')
 
-    ctx.exec_command('bash src/js/create.sh')
+    ctx.exec_command('bash script/create.sh')
 
     ctx.pbl_program(source=ctx.path.ant_glob('src/**/*.c'),
                     target='pebble-app.elf')

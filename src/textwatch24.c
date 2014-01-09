@@ -83,6 +83,15 @@ int numAnimations;
 bool date;
 bool oh;
 
+bool animationsScheduledQ(PropertyAnimation* pa[], int len)
+{
+	int i;
+	for (i = 0; i < len; i++)
+		if (animation_is_scheduled(&pa[i]->animation))
+			return true;
+	return false;
+}
+
 int getFirstPaIndex(PropertyAnimation* pa[], int len)
 {
 	int i;
@@ -253,7 +262,7 @@ void in_received_handler(DictionaryIterator *iter, void *context)
 	{
 		Tuple *tuple = dict_find(iter, KEY_DATE);
 		
-		if(getFirstPaIndex(paReturn, 5) || getFirstPaIndex(paLeave, 5))
+		if(animationsScheduledQ(paReturn, 5) || animationsScheduledQ(paLeave, 5))
 		{
 			DictionaryIterator *iter;
 			Tuplet err = TupletInteger(KEY_ERR, 1);
@@ -426,10 +435,12 @@ void deinit(void)
 	text_layer_destroy(tl_Date);
 	fonts_unload_custom_font(monaco10);
 
-	for (int i = 0; i < 5 && animation_is_scheduled(&paLeave[i]->animation); i++)
-		property_animation_destroy(paLeave[i]);
-	for (int i = 0; i < 5 && animation_is_scheduled(&paReturn[i]->animation); i++)
-		property_animation_destroy(paReturn[i]);
+	for (int i = 0; i < 5; i++)
+		if(animation_is_scheduled(&paLeave[i]->animation))
+			property_animation_destroy(paLeave[i]);
+	for (int i = 0; i < 5; i++)
+		if(animation_is_scheduled(&paReturn[i]->animation))
+			property_animation_destroy(paReturn[i]);
 
 	window_destroy(window);
 }

@@ -1,8 +1,7 @@
-var html = '<!DOCTYPE html><html><head><title>TextWatch 24</title><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{background-color: #00FFFF;}div.indent{position: relative;left: +10px;}div.spaceFill{height: 20px;width: 1px;}h2.boring{margin-top: 0px;}</style><script>function s(e){for(o={},i=0;i<e.length;i++)(j=e[i].id)&&(o[j]=e[i].checked?1:0);return window.location.href="pebblejs://close#"+JSON.stringify(o),!1}</script></head><body><h2>24-Hour Text Watch Configuration</h2><form onsubmit="return s(this)"><h3>Date</h3><div class="indent"><input name="dateVar" id="dateVar" type="checkbox" $DATECHECKEDQ /><label for="dateVar">Show Date</label></div><h3>o\' or oh</h3><div class="indent"><input name="ohVar" id="ohVar1" type="radio" $OTICKCHECKEDQ />o\'<br /><input name="ohVar" id="ohVar2" type="radio" $OHCHECKEDQ />oh</div><div class="spaceFill"></div><input type="submit" value="Submit" /><div class="spaceFill"></div>by<br /><h2 class="boring">Computing Eureka</h2></form></body></html>';
 var AskReqVal = 1;
 var SetReqVal = 2;
-var initialDate;
-var initialOh;
+var initialDate = 1;
+var initialOh = 1;
 var lastConfig;
 
 Pebble.addEventListener("ready", function()
@@ -43,11 +42,10 @@ Pebble.addEventListener("showConfiguration", function()
 
 	console.log("showing configuration");
 
-	thishtml = html.replace("$DATECHECKEDQ", (initialDate) ? "checked=\"checked\"" : "");
-	thishtml = thishtml.replace("$OTICKCHECKEDQ", (initialOh == 1) ? "checked=\"checked\"" : "");
-	thishtml = thishtml.replace("$OHCHECKEDQ", (initialOh == 2) ? "checked=\"checked\"" : "");
+	var url = "http://rigel314.github.io/pebbleTextWatch24/config.html" + "?datevar=" + (initialDate==1) ? "1" : "" + "&ohvar=" + initialOh;
 
-	var url = "data:text/html," + thishtml + "<!--.html";
+	console.log("url: " + url);
+
 	Pebble.openURL(url);
 });
 

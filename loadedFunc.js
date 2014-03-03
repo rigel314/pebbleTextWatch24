@@ -7,14 +7,14 @@ function getParameterByName(name) {
 
 function loadedFunc() {
 	if (getParameterByName('datevar')) {
-		document.getElementByID('dateVar').checked = true;
+		document.getElementById('dateVar').checked = true;
 	}
 
 	if (getParameterByName('ohvar') == 1) {
-		document.getElementByID('ohVar1').checked = true;
+		document.getElementById('ohVar1').checked = true;
 	}
 
 	if (getParameterByName('ohvar') == 2) {
-		document.getElementByID('ohVar2').checked = true;
+		document.getElementById('ohVar2').checked = true;
 	}
 }

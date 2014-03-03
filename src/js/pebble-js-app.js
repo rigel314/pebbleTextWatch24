@@ -42,7 +42,7 @@ Pebble.addEventListener("showConfiguration", function()
 
 	console.log("showing configuration");
 
-	var url = "http://rigel314.github.io/pebbleTextWatch24/config.html" + "?datevar=" + (initialDate==1) ? "1" : "" + "&ohvar=" + initialOh;
+	var url = "http://rigel314.github.io/pebbleTextWatch24/config.html" + "?datevar=" + ((initialDate==1) ? "1" : "") + "&ohvar=" + initialOh;
 
 	console.log("url: " + url);
 
